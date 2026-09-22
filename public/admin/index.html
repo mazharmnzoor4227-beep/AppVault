@@ -4,13 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#111111">
   <title>Admin — AppVault</title>
+  <link rel="manifest" href="/admin.webmanifest">
+  <link rel="icon" href="/assets/appvault-admin-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css">
   <link rel="stylesheet" href="/assets/professional.css">
   <style>
     /* Security UI gate: the dashboard must never be visible while the login view is active. */
     body[data-page="admin"] #admin-login.hidden,
     body[data-page="admin"] #admin-shell.hidden { display:none!important; }
+    .admin-install-row{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .admin-install-copy{max-width:720px}
+    .admin-install-copy h2{margin-bottom:6px!important}
+    #install-admin-app:disabled{opacity:.65;cursor:default}
   </style>
 </head>
 <body data-page="admin">
@@ -61,6 +68,16 @@
       <div class="admin-panel">
         <h2>How this works</h2>
         <p class="muted">Choose an APK and AppVault will try to read its technical metadata automatically. Large APKs are uploaded in chunks. Publish or unpublish listings any time.</p>
+      </div>
+      <div class="admin-panel" id="install-admin-panel">
+        <div class="admin-install-row">
+          <div class="admin-install-copy">
+            <h2>Install Admin App</h2>
+            <p class="muted">Add AppVault Admin to your phone home screen. It opens in its own app window, and anything you publish here goes directly to the same AppVault website and backend.</p>
+          </div>
+          <button class="btn btn-primary" id="install-admin-app" type="button">Install Admin App</button>
+        </div>
+        <span class="help" id="install-admin-status">If your browser supports installation, an install prompt will appear. Otherwise use the browser menu and choose “Install app” or “Add to Home screen”.</span>
       </div>
     </section>
 
@@ -146,5 +163,6 @@
 
 <script src="/assets/app.js" defer></script>
 <script src="/assets/admin-autofill.js?v=4" defer></script>
+<script src="/admin-pwa.js?v=1" defer></script>
 </body>
 </html>
