@@ -1,4 +1,4 @@
-name: Deploy AppVault to Cloudflare Pages
+name: Deploy AppVault sites to Cloudflare Pages
 
 on:
   push:
@@ -26,14 +26,75 @@ jobs:
       - name: Install Wrangler
         run: npm install --no-save wrangler@latest
 
-      - name: Ensure Pages project exists
+      - name: Build separated public storefront
+        shell: bash
+        run: |
+          rm -rf dist-public
+          cp -R public dist-public
+
+          # The public site must not ship the admin dashboard or admin PWA files.
+          rm -rf dist-public/admin
+          rm -f dist-public/admin-pwa.js dist-public/admin-sw.js dist-public/admin.webmanifest
+          rm -f dist-public/assets/admin-autofill.js dist-public/assets/appvault-admin-icon.svg
+
+          # Do not expose an Admin link in the public footer.
+          sed -i 's#<a href="/admin/">Admin</a>##g' dist-public/assets/app.js
+
+          # Keep only public application/category rewrites.
+          if [ -f dist-public/_redirects ]; then
+            grep -v '^/admin ' dist-public/_redirects > dist-public/_redirects.tmp || true
+            mv dist-public/_redirects.tmp dist-public/_redirects
+          fi
+
+      - name: Build separated admin app
+        shell: bash
+        run: |
+          rm -rf admin-project
+          mkdir -p admin-project/public/assets admin-project/functions/api
+
+          cp public/admin/index.html admin-project/public/index.html
+          cp public/assets/styles.css admin-project/public/assets/styles.css
+          cp public/assets/professional.css admin-project/public/assets/professional.css
+          cp public/assets/app.js admin-project/public/assets/app.js
+          cp public/assets/admin-autofill.js admin-project/public/assets/admin-autofill.js
+          cp public/assets/appvault-admin-icon.svg admin-project/public/assets/appvault-admin-icon.svg
+          cp public/admin-sw.js admin-project/public/admin-sw.js
+          cp admin-proxy/functions/api/'[[path]].js' admin-project/functions/api/'[[path]].js'
+
+          # Admin PWA lives at the root of its own domain, not under /admin/.
+          sed \
+            -e "s#link.setAttribute('href', '/admin/');#link.setAttribute('href', '/');#" \
+            -e "s#viewSite.href = '/';#viewSite.href = 'https://appvault-a4j.pages.dev/';#" \
+            -e "s#scope: '/admin/'#scope: '/'#" \
+            public/admin-pwa.js > admin-project/public/admin-pwa.js
+
+          sed \
+            -e 's#"id": "/admin/"#"id": "/"#' \
+            -e 's#"start_url": "/admin/"#"start_url": "/"#' \
+            -e 's#"scope": "/admin/"#"scope": "/"#' \
+            public/admin.webmanifest > admin-project/public/admin.webmanifest
+
+      - name: Ensure public Pages project exists
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler pages project create appvault --production-branch main || true
 
-      - name: Deploy AppVault
+      - name: Deploy public AppVault website
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy public --project-name appvault --branch main
+        run: npx wrangler pages deploy dist-public --project-name appvault --branch main
+
+      - name: Ensure private admin Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages project create appvault-admin-4227 --production-branch main || true
+
+      - name: Deploy private admin app
+        working-directory: admin-project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deploy public --project-name appvault-admin-4227 --branch main
