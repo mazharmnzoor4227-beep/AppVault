@@ -2,12 +2,15 @@ name = "appvault"
 compatibility_date = "2026-09-22"
 pages_build_output_dir = "./public"
 
-# Cloudflare setup after the repository is connected to Pages:
-# D1 binding name: DB
+[[d1_databases]]
+binding = "DB"
+database_name = "appvault-db"
+database_id = "fd75822f-3b37-412d-b540-53331a29d87b"
+
 # R2 binding name: APPS_BUCKET
 # Environment secrets/variables:
 #   ADMIN_EMAIL
 #   ADMIN_PASSWORD
 #   SESSION_SECRET
 #
-# Keep account IDs, database IDs, passwords, API tokens and secrets out of GitHub.
+# Keep passwords, API tokens and session secrets out of GitHub.
