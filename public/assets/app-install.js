@@ -11,7 +11,8 @@
     .app-install-box p{margin:8px 0 0;color:#747980;font-size:12px;line-height:1.5}
     .app-install-mobile{display:none}
     @media(max-width:760px){
-      .app-install-mobile{display:block;margin-top:14px}
+      .app-heading{flex-wrap:wrap!important}
+      .app-install-mobile{display:block!important;flex:0 0 100%;width:100%;margin-top:14px}
       .detail-side .app-install-box{display:none}
     }
   `;
