@@ -5,6 +5,30 @@
   const installStatus = document.getElementById('install-admin-status');
   let deferredPrompt = null;
 
+  // Keep the admin shell inside /admin/. Clicking the AppVault brand must not
+  // jump into the public storefront from the installed admin app.
+  document.querySelectorAll('body[data-page="admin"] a.brand').forEach(link => {
+    link.setAttribute('href', '/admin/');
+    link.setAttribute('aria-label', 'AppVault Admin dashboard');
+  });
+
+  // Public website access is explicit and opens separately.
+  const top = document.querySelector('.admin-top');
+  const signOut = document.getElementById('logout-btn');
+  if (top && signOut && !document.getElementById('view-public-site')) {
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    const viewSite = document.createElement('a');
+    viewSite.id = 'view-public-site';
+    viewSite.className = 'btn btn-secondary';
+    viewSite.href = '/';
+    viewSite.target = '_blank';
+    viewSite.rel = 'noopener';
+    viewSite.textContent = 'View website';
+    signOut.parentNode.insertBefore(actions, signOut);
+    actions.append(viewSite, signOut);
+  }
+
   const isStandalone = () =>
     window.matchMedia?.('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
