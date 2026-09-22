@@ -7,7 +7,10 @@ binding = "DB"
 database_name = "appvault-db"
 database_id = "fd75822f-3b37-412d-b540-53331a29d87b"
 
-# R2 binding name: APPS_BUCKET
+[[r2_buckets]]
+binding = "APPS_BUCKET"
+bucket_name = "appvault-files"
+
 # Environment secrets/variables:
 #   ADMIN_EMAIL
 #   ADMIN_PASSWORD
