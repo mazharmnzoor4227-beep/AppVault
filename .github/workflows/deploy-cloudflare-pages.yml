@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: appvault-pages-production
+  cancel-in-progress: true
+
 permissions:
   contents: read
   deployments: write
