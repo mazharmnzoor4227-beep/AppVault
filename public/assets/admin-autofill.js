@@ -190,6 +190,116 @@
     apkGroup.insertAdjacentElement('afterend', note);
   }
 
+  function ensureLibraryStyles() {
+    if ($('#admin-library-icon-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'admin-library-icon-styles';
+    style.textContent = `
+      #admin-app-list td:first-child { min-width: 190px; }
+      .admin-app-name-cell { display:flex; align-items:center; gap:12px; min-width:0; }
+      .admin-app-list-icon { width:44px; height:44px; flex:0 0 44px; border-radius:11px; object-fit:cover; background:#eef1f4; border:1px solid rgba(15,23,42,.08); }
+      .admin-app-list-icon.fallback { display:grid; place-items:center; font-weight:800; font-size:16px; color:#475569; background:#f1f5f9; }
+      .admin-app-name-text { min-width:0; display:flex; flex-direction:column; gap:2px; }
+      .admin-app-name-text strong { font-size:14px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+      .admin-app-name-text small { color:#64748b; font-size:11px; }
+      @media (max-width:700px) {
+        .admin-app-list-icon { width:38px; height:38px; flex-basis:38px; border-radius:9px; }
+        #admin-app-list td:first-child { min-width:160px; }
+        .admin-app-name-text strong { max-width:150px; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function appIconUrl(app) {
+    if (app?.icon_url) return app.icon_url;
+    if (app?.icon_key) return `/api/media/${String(app.icon_key).split('/').map(encodeURIComponent).join('/')}`;
+    return '';
+  }
+
+  async function decorateAdminLibrary() {
+    const tbody = $('#admin-app-list');
+    if (!tbody) return;
+    const rows = [...tbody.querySelectorAll('tr')].filter(row => row.children.length >= 5 && row.dataset.iconDecorated !== '1');
+    if (!rows.length) return;
+
+    let apps = [];
+    try {
+      const response = await fetch('/api/admin/apps', { credentials: 'same-origin' });
+      if (!response.ok) return;
+      const data = await response.json();
+      apps = data.apps || [];
+    } catch {
+      return;
+    }
+
+    for (const row of rows) {
+      const nameCell = row.children[0];
+      const versionCell = row.children[1];
+      if (!nameCell || !versionCell) continue;
+      const name = nameCell.textContent.trim();
+      const version = versionCell.textContent.trim();
+      const app = apps.find(item => String(item.name || '').trim() === name && String(item.version || '—').trim() === version)
+        || apps.find(item => String(item.name || '').trim() === name);
+      if (!app) continue;
+
+      row.dataset.iconDecorated = '1';
+      const wrap = document.createElement('div');
+      wrap.className = 'admin-app-name-cell';
+
+      const iconUrl = appIconUrl(app);
+      if (iconUrl) {
+        const img = document.createElement('img');
+        img.className = 'admin-app-list-icon';
+        img.src = iconUrl;
+        img.alt = `${app.name || 'App'} icon`;
+        img.loading = 'lazy';
+        img.onerror = () => {
+          const fallback = document.createElement('div');
+          fallback.className = 'admin-app-list-icon fallback';
+          fallback.textContent = String(app.name || 'A').slice(0, 1).toUpperCase();
+          img.replaceWith(fallback);
+        };
+        wrap.appendChild(img);
+      } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'admin-app-list-icon fallback';
+        fallback.textContent = String(app.name || 'A').slice(0, 1).toUpperCase();
+        wrap.appendChild(fallback);
+      }
+
+      const text = document.createElement('div');
+      text.className = 'admin-app-name-text';
+      const strong = document.createElement('strong');
+      strong.textContent = app.name || name;
+      text.appendChild(strong);
+      if (app.category_name) {
+        const small = document.createElement('small');
+        small.textContent = app.category_name;
+        text.appendChild(small);
+      }
+      wrap.appendChild(text);
+      nameCell.textContent = '';
+      nameCell.appendChild(wrap);
+    }
+  }
+
+  function watchAdminLibrary() {
+    const tbody = $('#admin-app-list');
+    if (!tbody || tbody.dataset.iconWatch === '1') return;
+    tbody.dataset.iconWatch = '1';
+    ensureLibraryStyles();
+    let timer;
+    const run = () => {
+      clearTimeout(timer);
+      timer = setTimeout(decorateAdminLibrary, 80);
+    };
+    new MutationObserver(() => {
+      if ([...tbody.querySelectorAll('tr')].some(row => row.children.length >= 5 && row.dataset.iconDecorated !== '1')) run();
+    }).observe(tbody, { childList: true, subtree: false });
+    run();
+  }
+
   function attach() {
     const form = $('#app-form');
     const apkInput = $('#app-apk');
@@ -197,6 +307,7 @@
     apkInput.dataset.autofillReady = '1';
 
     moveApkFirst(form, apkInput);
+    watchAdminLibrary();
 
     const status = document.createElement('span');
     status.className = 'help';
