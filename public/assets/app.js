@@ -83,7 +83,7 @@ const AppVault = (() => {
             <p>A clean home for useful Android apps. Every listing is built around clear details, safe navigation and a direct download experience.</p>
           </div>
           <div class="footer-col"><h4>Explore</h4><a href="/apps.html">All apps</a><a href="/categories.html">Categories</a><a href="/apps.html?sort=latest">Latest</a></div>
-          <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/contact.html">Contact</a><a href="/admin/">Admin</a></div>
+          <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/contact.html">Contact</a></div>
           <div class="footer-col"><h4>Legal</h4><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></div>
         </div>
         <div class="container footer-bottom"><span>© ${new Date().getFullYear()} AppVault.</span><span>Built for fast, direct app discovery.</span></div>
@@ -101,6 +101,7 @@ const AppVault = (() => {
   }
 
   function initTilt(root = document) {
+    return; // Keep cards still; no pointer-driven transforms or listeners.
     if (matchMedia('(pointer: coarse)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     $$('.tilt', root).forEach(card => {
       card.addEventListener('pointermove', e => {
@@ -121,7 +122,7 @@ const AppVault = (() => {
   }
 
   function appCard(app) {
-    return `<a class="app-card tilt" href="/app/${encodeURIComponent(app.slug)}">
+    return `<a class="app-card" href="/app.html?slug=${encodeURIComponent(app.slug)}">
       ${iconMarkup(app)}
       <h3>${escapeHtml(app.name)}</h3>
       <p>${escapeHtml(app.short_description || 'View app details, version information and download options.')}</p>
@@ -135,7 +136,7 @@ const AppVault = (() => {
   }
 
   function categoryCard(cat) {
-    return `<a class="category-card reveal" href="/category/${encodeURIComponent(cat.slug)}">
+    return `<a class="category-card" href="/apps.html?category=${encodeURIComponent(cat.slug)}">
       <div class="cat-icon">${categoryIcon(cat.icon)}</div>
       <h3>${escapeHtml(cat.name)}</h3>
       <p>${escapeHtml(cat.description || 'Explore apps in this category.')}</p>
@@ -165,13 +166,13 @@ const AppVault = (() => {
         request('/api/apps?sort=latest&limit=4'),
         loadCategories()
       ]);
-      if (featured) featured.innerHTML = featuredData.apps?.length ? featuredData.apps.map(appCard).join('') : empty('Featured apps are coming', 'Publish an app from the admin dashboard and mark it as featured.');
+      if (featured) featured.innerHTML = featuredData.apps?.length ? featuredData.apps.map(appCard).join('') : empty('More to discover soon', 'Explore the latest additions to the app library.');
       if (latest) latest.innerHTML = latestData.apps?.length ? latestData.apps.map(appCard).join('') : empty('No apps published yet', 'Your newest published apps will appear here automatically.');
       if (cats) cats.innerHTML = categories.slice(0,8).map(categoryCard).join('');
       initTilt(featured || document); initTilt(latest || document); initReveal();
     } catch (err) {
-      if (featured) featured.innerHTML = empty('Backend setup needed', 'Connect the Cloudflare D1 binding named DB to load app listings.');
-      if (latest) latest.innerHTML = empty('Backend setup needed', err.message);
+      if (featured) featured.innerHTML = empty('Temporarily unavailable', 'Please refresh the page in a moment.');
+      if (latest) latest.innerHTML = empty('Could not load apps', 'Please try again shortly.');
       if (cats) cats.innerHTML = '';
     }
   }
@@ -190,19 +191,34 @@ const AppVault = (() => {
       search.value = params.get('q') || '';
       category.value = params.get('category') || '';
       sort.value = params.get('sort') || 'latest';
-      let timer;
-      const load = async () => {
-        grid.innerHTML = loadingGrid(8);
-        const qs = new URLSearchParams({ q: search.value.trim(), category: category.value, sort: sort.value, limit: '60' });
-        history.replaceState({}, '', `${location.pathname}?${qs}`);
+      let timer, generation = 0, offset = 0;
+      const more = document.createElement('button');
+      more.className = 'btn btn-secondary load-more hidden'; more.textContent = 'Load more';
+      grid.after(more);
+      const load = async (append = false) => {
+        const current = ++generation;
+        if (!append) { offset = 0; grid.innerHTML = loadingGrid(8); }
+        more.disabled = true;
+        const qs = new URLSearchParams({ q: search.value.trim(), category: category.value, sort: sort.value, limit: '24', offset: String(offset) });
+        const displayQs = new URLSearchParams({q:search.value.trim(),category:category.value,sort:sort.value});
+        history.replaceState({}, '', `${location.pathname}?${displayQs}`);
+        const selected = categories.find(c => c.slug === category.value);
+        const heading = $('.page-hero h1'); if (heading) heading.textContent = selected?.name || 'All apps';
         try {
           const data = await request(`/api/apps?${qs}`);
-          grid.innerHTML = data.apps?.length ? data.apps.map(appCard).join('') : empty('Nothing matched', 'Try another search or category.');
+          if (current !== generation) return;
+          const html = data.apps?.length ? data.apps.map(appCard).join('') : '';
+          if (append) grid.insertAdjacentHTML('beforeend', html);
+          else grid.innerHTML = html || empty('Nothing here yet', 'Try another search or explore a different category.');
+          offset += data.apps?.length || 0;
+          more.classList.toggle('hidden', (data.apps?.length || 0) < 24);
           initTilt(grid);
-        } catch (e) { grid.innerHTML = empty('Could not load apps', e.message); }
+        } catch (e) { if (current === generation) { if (append) toast(e.message, true); else grid.innerHTML = empty('Could not load apps', e.message); } }
+        finally { if (current === generation) more.disabled = false; }
       };
-      search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 260); });
-      category.addEventListener('change', load); sort.addEventListener('change', load);
+      more.addEventListener('click', () => load(true));
+      search.addEventListener('input', () => { clearTimeout(timer); ++generation; timer = setTimeout(() => load(), 260); });
+      category.addEventListener('change', () => load()); sort.addEventListener('change', () => load());
       await load();
     } catch (e) { grid.innerHTML = empty('Could not load apps', e.message); }
   }
@@ -315,10 +331,12 @@ const AppVault = (() => {
   }
 
   async function uploadApk(file, progress) {
+    if (!file.name.toLowerCase().endsWith('.apk') || file.size > 1024 * 1024 * 1024) throw new Error('Choose an APK no larger than 1 GB.');
     const started = await request('/api/admin/uploads/start', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ filename:file.name, content_type:file.type || 'application/vnd.android.package-archive', size:file.size }) });
     const chunkSize = 20 * 1024 * 1024;
     const parts = [];
     const total = Math.ceil(file.size / chunkSize);
+    try {
     for (let i = 0; i < total; i++) {
       const start = i * chunkSize, end = Math.min(file.size, start + chunkSize);
       const blob = file.slice(start, end);
@@ -330,6 +348,10 @@ const AppVault = (() => {
     }
     const complete = await request('/api/admin/uploads/complete', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ key:started.key, uploadId:started.uploadId, parts }) });
     return complete.key;
+    } catch (error) {
+      await request('/api/admin/uploads/abort', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({key:started.key,uploadId:started.uploadId}) }).catch(() => {});
+      throw error;
+    }
   }
 
   async function initAdmin() {
@@ -337,7 +359,7 @@ const AppVault = (() => {
     const shell = $('#admin-shell');
     if (!login || !shell) return;
 
-    const showLogin = () => { login.classList.remove('hidden'); shell.classList.add('hidden'); };
+    const showLogin = () => { login.classList.remove('hidden'); shell.classList.add('hidden'); state.apps = []; $('#admin-app-list').replaceChildren(); $('#message-list').replaceChildren(); $('#edit-dialog')?.close(); };
     const showShell = () => { login.classList.add('hidden'); shell.classList.remove('hidden'); };
 
     async function checkSession() {
@@ -352,13 +374,13 @@ const AppVault = (() => {
       try {
         const payload = Object.fromEntries(new FormData(e.currentTarget));
         await request('/api/admin/login', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(payload) });
-        showShell(); await refreshDashboard();
+        e.target.reset(); showShell(); await refreshDashboard();
       } catch (err) { toast(err.message, true); }
       finally { button.disabled = false; button.textContent = 'Sign in'; }
     });
 
     $('#logout-btn')?.addEventListener('click', async () => {
-      try { await request('/api/admin/logout', { method:'POST' }); } catch {}
+      try { await request('/api/admin/logout', { method:'POST' }); } catch { toast('Sign out failed. Please try again.', true); return; }
       showLogin();
     });
 
@@ -371,11 +393,12 @@ const AppVault = (() => {
 
     $('#category-form')?.addEventListener('submit', async e => {
       e.preventDefault();
-      const payload = Object.fromEntries(new FormData(e.currentTarget));
+      const form = e.currentTarget;
+      const payload = Object.fromEntries(new FormData(form));
       payload.slug = slugify(payload.slug || payload.name);
       try {
         await request('/api/admin/categories', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(payload) });
-        e.currentTarget.reset(); toast('Category created'); await loadAdminCategories();
+        form.reset(); toast('Category created'); await loadAdminCategories();
       } catch (err) { toast(err.message, true); }
     });
 
@@ -415,10 +438,15 @@ const AppVault = (() => {
       const payload = Object.fromEntries(new FormData(e.currentTarget));
       payload.slug = slugify(payload.slug || payload.name);
       payload.featured = $('#edit-featured').checked ? 1 : 0;
+      const button = $('button[type="submit"]', e.currentTarget);
+      button.disabled = true;
       try {
+        const replacement = $('#edit-apk')?.files?.[0];
+        if (replacement) payload.apk_key = await uploadApk(replacement, pct => { button.textContent = `Uploading ${Math.round(pct)}%`; });
         await request(`/api/admin/apps/${id}`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify(payload) });
         $('#edit-dialog').close(); toast('App updated'); await refreshDashboard();
       } catch (err) { toast(err.message, true); }
+      finally { button.disabled = false; button.textContent = 'Save changes'; }
     });
     $('#edit-close')?.addEventListener('click', () => $('#edit-dialog').close());
 
@@ -437,7 +465,7 @@ const AppVault = (() => {
       state.apps = data.apps || [];
       const table = $('#admin-app-list');
       table.innerHTML = state.apps.map(app => `<tr>
-        <td>${escapeHtml(app.name)}</td><td>${escapeHtml(app.version || '—')}</td><td>${escapeHtml(app.status)}</td><td>${fmtNumber(app.downloads_count)}</td>
+        <td><div class="admin-app-identity">${iconMarkup(app)}<div><strong>${escapeHtml(app.name)}</strong><small>${escapeHtml(app.category_name || 'Uncategorized')}</small></div></div></td><td>${escapeHtml(app.version || '—')}</td><td><span class="status-pill ${app.status === 'draft' ? 'draft' : ''}">${escapeHtml(app.status)}</span></td><td>${fmtNumber(app.downloads_count)}</td>
         <td><div class="table-actions"><button class="btn btn-secondary btn-small" data-edit="${app.id}">Edit</button><button class="btn btn-secondary btn-small" data-toggle="${app.id}" data-status="${app.status}">${app.status === 'published' ? 'Unpublish' : 'Publish'}</button><button class="btn btn-danger btn-small" data-delete="${app.id}">Delete</button></div></td>
       </tr>`).join('') || `<tr><td colspan="5">No apps yet.</td></tr>`;
       $$('[data-edit]', table).forEach(btn => btn.addEventListener('click', () => openEdit(btn.dataset.edit)));
@@ -457,6 +485,7 @@ const AppVault = (() => {
       const app = state.apps.find(a => String(a.id) === String(id));
       if (!app) return;
       const f = $('#edit-form'); f.dataset.id = app.id;
+      if ($('#edit-apk')) $('#edit-apk').value = '';
       const set = (name,val) => { const el = f.elements[name]; if (el) el.value = val ?? ''; };
       ['name','slug','developer','package_name','version','android_version','short_description','description','changelog','status','category_id'].forEach(k => set(k, app[k]));
       $('#edit-featured').checked = Boolean(app.featured);
@@ -466,8 +495,16 @@ const AppVault = (() => {
     async function loadMessages() {
       const data = await request('/api/admin/messages');
       const table = $('#message-list');
-      table.innerHTML = (data.messages || []).map(m => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td><td style="max-width:380px;white-space:normal">${escapeHtml(m.message)}</td><td>${escapeHtml(m.created_at)}</td></tr>`).join('') || `<tr><td colspan="4">No messages.</td></tr>`;
+      table.innerHTML = (data.messages || []).map(m => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td><td style="max-width:380px;white-space:normal">${escapeHtml(m.message)}</td><td>${escapeHtml(m.created_at)}<button class="btn btn-secondary btn-small" data-delete-message="${m.id}" type="button">Delete message</button></td></tr>`).join('') || `<tr><td colspan="4">No messages.</td></tr>`;
     }
+
+    $('#message-list')?.addEventListener('click', async event => {
+      const button = event.target.closest('[data-delete-message]');
+      if (!button || !confirm('Permanently delete this contact message?')) return;
+      button.disabled = true;
+      try { await request(`/api/admin/messages/${button.dataset.deleteMessage}`, {method:'DELETE'}); await refreshDashboard(); }
+      catch (error) { toast(error.message, true); button.disabled = false; }
+    });
 
     async function refreshDashboard() {
       try {

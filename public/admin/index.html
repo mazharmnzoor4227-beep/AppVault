@@ -19,7 +19,7 @@
     .admin-install-copy h2{margin-bottom:6px!important}
     #install-admin-app:disabled{opacity:.65;cursor:default}
   </style>
-</head>
+<link rel="stylesheet" href="/assets/premium.css?v=6"></head>
 <body data-page="admin">
 
 <section class="login-wrap" id="admin-login">
@@ -30,11 +30,11 @@
     <form id="login-form">
       <div class="form-group">
         <label>Email</label>
-        <input class="field" type="email" name="email" autocomplete="username" required>
+        <input aria-label="Email" class="field" type="email" name="email" autocomplete="username" required>
       </div>
       <div class="form-group" style="margin-top:12px">
         <label>Password</label>
-        <input class="field" type="password" name="password" autocomplete="current-password" required>
+        <input aria-label="Password" class="field" type="password" name="password" autocomplete="current-password" required>
       </div>
       <button class="btn btn-primary" type="submit" style="width:100%;margin-top:18px">Sign in</button>
     </form>
@@ -154,14 +154,14 @@
         <div class="form-group full"><label>Short description</label><input class="field" name="short_description"></div>
         <div class="form-group full"><label>Description</label><textarea class="field" name="description"></textarea></div>
         <div class="form-group full"><label>Changelog</label><textarea class="field" name="changelog"></textarea></div>
-        <div class="form-group full"><label><input type="checkbox" id="edit-featured"> Featured</label></div>
+        <div class="form-group full"><label for="edit-apk">Replace APK (optional)</label><input class="field" id="edit-apk" type="file" accept=".apk"><span class="help">Keep this listing and its download count. Review the version and changelog before saving.</span></div><div class="form-group full"><label><input type="checkbox" id="edit-featured"> Featured</label></div>
         <div class="form-group full"><button class="btn btn-primary" type="submit">Save changes</button></div>
       </div>
     </form>
   </div>
 </dialog>
 
-<script src="/assets/app.js" defer></script>
+<script src="/assets/app.js?v=6" defer></script>
 <script src="/assets/admin-autofill.js?v=4" defer></script>
 <script src="/admin-pwa.js?v=1" defer></script>
 </body>

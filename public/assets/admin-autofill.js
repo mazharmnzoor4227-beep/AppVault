@@ -100,8 +100,7 @@
   async function ensureParser() {
     if (typeof window.AppInfoParser === 'function') return window.AppInfoParser;
     const sources = [
-      'https://cdn.jsdelivr.net/npm/app-info-parser@1.1.6/dist/app-info-parser.min.js',
-      'https://unpkg.com/app-info-parser@1.1.6/dist/app-info-parser.min.js'
+      '/assets/vendor/app-info-parser.min.js'
     ];
     for (const src of sources) {
       try {

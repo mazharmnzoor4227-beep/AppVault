@@ -3,53 +3,85 @@ const SESSION_COOKIE = 'appvault_session';
 const SESSION_TTL = 60 * 60 * 12;
 
 export async function onRequest(context) {
+  const { request } = context;
+  const url = new URL(request.url);
+  const cacheable = request.method === 'GET' && !request.headers.has('cookie') && !request.headers.has('range') && /^\/api\/(categories|apps(?:\/[^/]+)?|media\/(?:icons|screenshots)\/[^/]+)$/.test(url.pathname);
+  const cache = globalThis.caches?.default;
+  const key = new Request(url.toString());
+  if (cacheable && cache) {
+    const hit = await cache.match(key);
+    if (hit) return hit;
+  }
+  const result = await route(context);
+  const response = new Response(result.body, result);
+  response.headers.set('x-content-type-options', 'nosniff');
+  response.headers.set('x-frame-options', 'DENY');
+  response.headers.set('referrer-policy', 'same-origin');
+  if (cacheable && response.ok && !response.headers.get('cache-control')?.includes('private')) {
+    // Short bounded staleness after publish/unpublish; never cache admin data.
+    response.headers.set('cache-control', 'public, max-age=0, s-maxage=30');
+    if (cache) context.waitUntil(cache.put(key, response.clone()));
+  }
+  return response;
+}
+
+async function route(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/?/, '');
   const method = request.method.toUpperCase();
 
   try {
+    const bytes = Number(request.headers.get('content-length') || 0);
+    const limit = path === 'admin/uploads/part' ? 25 * 1024 * 1024 : path === 'admin/apps' ? 48 * 1024 * 1024 : 32 * 1024;
+    if (bytes > limit) return json({ error: 'Request is too large.' }, 413);
     if (method === 'OPTIONS') return new Response(null, { status: 204 });
 
     // Public API
-    if (method === 'GET' && path === 'categories') return getCategories(env);
-    if (method === 'GET' && path === 'apps') return getApps(env, url);
-    if (method === 'GET' && path.startsWith('apps/')) return getApp(env, decodeURIComponent(path.slice(5)));
-    if (method === 'GET' && path.startsWith('download/')) return downloadApp(env, request, decodeURIComponent(path.slice(9)));
-    if (method === 'GET' && path.startsWith('media/')) return serveMedia(env, request, decodeKey(path.slice(6)));
-    if (method === 'POST' && path === 'contact') return createContact(env, request);
+    if (method === 'GET' && path === 'categories') return await getCategories(env);
+    if (method === 'GET' && path === 'apps') return await getApps(env, url);
+    if (method === 'GET' && path.startsWith('apps/')) return await getApp(env, decodeURIComponent(path.slice(5)));
+    if (['GET', 'HEAD'].includes(method) && path.startsWith('download/')) return await downloadApp(env, request, decodeURIComponent(path.slice(9)), context);
+    if (['GET', 'HEAD'].includes(method) && path.startsWith('media/')) return await serveMedia(env, request, decodeKey(path.slice(6)));
+    if (method === 'POST' && path === 'contact') return await createContact(env, request);
 
     // Admin auth routes
-    if (method === 'POST' && path === 'admin/login') return adminLogin(env, request);
-    if (method === 'POST' && path === 'admin/logout') return adminLogout();
-    if (method === 'GET' && path === 'admin/me') return adminMe(env, request);
+    if (method === 'POST' && path === 'admin/login') return await adminLogin(env, request);
+    if (method === 'POST' && path === 'admin/logout') return sameOrigin(request) ? adminLogout() : json({ error: 'Origin check failed.' }, 403);
+    if (method === 'GET' && path === 'admin/me') return await adminMe(env, request);
 
     if (path.startsWith('admin/')) {
       const auth = await requireAdmin(env, request);
       if (auth instanceof Response) return auth;
       if (!sameOrigin(request)) return json({ error: 'Origin check failed.' }, 403);
 
-      if (method === 'GET' && path === 'admin/stats') return adminStats(env);
-      if (method === 'GET' && path === 'admin/apps') return adminApps(env);
-      if (method === 'POST' && path === 'admin/apps') return createApp(env, request);
+      if (method === 'GET' && path === 'admin/stats') return await adminStats(env);
+      if (method === 'GET' && path === 'admin/apps') return await adminApps(env);
+      if (method === 'POST' && path === 'admin/apps') return await createApp(env, request);
       if ((method === 'PATCH' || method === 'DELETE') && /^admin\/apps\/\d+$/.test(path)) {
         const id = Number(path.split('/').pop());
-        return method === 'PATCH' ? updateApp(env, request, id) : deleteApp(env, id);
+        return await (method === 'PATCH' ? updateApp(env, request, id) : deleteApp(env, id));
       }
-      if (method === 'POST' && path === 'admin/categories') return createCategory(env, request);
-      if (method === 'GET' && path === 'admin/messages') return adminMessages(env);
-      if (method === 'POST' && path === 'admin/uploads/start') return startMultipart(env, request);
-      if (method === 'PUT' && path === 'admin/uploads/part') return uploadPart(env, request, url);
-      if (method === 'POST' && path === 'admin/uploads/complete') return completeMultipart(env, request);
-      if (method === 'POST' && path === 'admin/uploads/abort') return abortMultipart(env, request);
+      if (method === 'POST' && path === 'admin/categories') return await createCategory(env, request);
+      if (method === 'GET' && path === 'admin/messages') return await adminMessages(env);
+      if (method === 'DELETE' && /^admin\/messages\/\d+$/.test(path)) {
+        await needDb(env).prepare('DELETE FROM contact_messages WHERE id = ?').bind(Number(path.split('/').pop())).run();
+        return json({ ok: true });
+      }
+      if (method === 'POST' && path === 'admin/uploads/start') return await startMultipart(env, request);
+      if (method === 'PUT' && path === 'admin/uploads/part') return await uploadPart(env, request, url);
+      if (method === 'POST' && path === 'admin/uploads/complete') return await completeMultipart(env, request);
+      if (method === 'POST' && path === 'admin/uploads/abort') return await abortMultipart(env, request);
     }
 
     return json({ error: 'Not found.' }, 404);
   } catch (error) {
-    console.error('AppVault API error', error);
+    console.error('AppVault API request failed', error?.name || 'Error');
     const message = String(error?.message || error || 'Unexpected server error');
+    if (error instanceof URIError || error instanceof SyntaxError) return json({ error: 'Invalid request.' }, 400);
+    if (/Images must|Use PNG|Image content/.test(message)) return json({ error: message }, 400);
     if (/no such table|D1_ERROR|binding/i.test(message)) {
-      return json({ error: 'Cloudflare backend is not ready yet. Bind D1 as DB, bind R2 as APPS_BUCKET, then run schema.sql.' }, 503);
+      return json({ error: 'Service temporarily unavailable. Please try again shortly.' }, 503);
     }
     return json({ error: 'Unexpected server error.' }, 500);
   }
@@ -177,6 +209,9 @@ async function getApp(env, slug) {
 }
 
 async function createContact(env, request) {
+  if (!sameOrigin(request)) return json({ error: 'Origin check failed.' }, 403);
+  const limited = await rateLimit(env, request, 'contact', 5, 3600);
+  if (limited) return limited;
   const db = needDb(env);
   const body = await request.json().catch(() => ({}));
   const name = String(body.name || '').trim().slice(0, 80);
@@ -187,29 +222,32 @@ async function createContact(env, request) {
   return json({ ok: true }, 201);
 }
 
-async function downloadApp(env, request, slug) {
+async function downloadApp(env, request, slug, context) {
   const db = needDb(env);
   const bucket = needBucket(env);
   const app = await db.prepare(`SELECT id, name, version, apk_key FROM apps WHERE slug = ? AND status = 'published' LIMIT 1`).bind(slug).first();
   if (!app) return json({ error: 'App not found.' }, 404);
-  const head = await bucket.head(app.apk_key);
-  if (!head) return json({ error: 'APK file is missing from storage.' }, 404);
-
-  await db.batch([
-    db.prepare(`UPDATE apps SET downloads_count = downloads_count + 1 WHERE id = ?`).bind(app.id),
-    db.prepare(`INSERT INTO downloads (app_id) VALUES (?)`).bind(app.id)
-  ]);
-
   const safeName = `${String(app.name).replace(/[^a-z0-9._-]+/gi, '-')}-${String(app.version || 'latest').replace(/[^a-z0-9._-]+/gi, '-')}.apk`;
-  return serveR2(bucket, request, app.apk_key, {
+  const response = await serveR2(bucket, request, app.apk_key, {
     disposition: `attachment; filename="${safeName}"`,
     cache: 'private, max-age=0'
   });
+  // Count download starts, not HEAD probes or resumed chunks. Do not delay the file.
+  if (response.ok && request.method === 'GET' && !request.headers.has('range')) {
+    context.waitUntil(db.prepare(`UPDATE apps SET downloads_count = downloads_count + 1 WHERE id = ?`).bind(app.id).run().catch(() => {}));
+  }
+  return response;
 }
 
 async function serveMedia(env, request, key) {
-  if (!key || key.includes('..')) return json({ error: 'Invalid media key.' }, 400);
-  return serveR2(needBucket(env), request, key, { cache: 'public, max-age=31536000, immutable' });
+  if (!/^(icons|screenshots)\/[a-zA-Z0-9._-]+$/.test(key) || key.includes('..')) return json({ error: 'Invalid media key.' }, 400);
+  // An APK or draft asset must not be exposed through an unprotected storage URL.
+  const row = await needDb(env).prepare(`SELECT id FROM apps WHERE status = 'published' AND icon_key = ? UNION ALL SELECT s.app_id FROM screenshots s JOIN apps a ON a.id = s.app_id WHERE a.status = 'published' AND s.object_key = ? LIMIT 1`).bind(key, key).first();
+  if (!row) {
+    const auth = await requireAdmin(env, request);
+    if (auth instanceof Response) return json({ error: 'File not found.' }, 404);
+  }
+  return serveR2(needBucket(env), request, key, { cache: row ? 'public, max-age=60' : 'private, no-store' });
 }
 
 async function serveR2(bucket, request, key, options = {}) {
@@ -221,8 +259,16 @@ async function serveR2(bucket, request, key, options = {}) {
   headers.set('accept-ranges', 'bytes');
   headers.set('cache-control', options.cache || 'public, max-age=3600');
   if (options.disposition) headers.set('content-disposition', options.disposition);
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('content-security-policy', "default-src 'none'; sandbox");
+  if (request.headers.get('if-none-match') === headers.get('etag')) return new Response(null, { status: 304, headers });
+  if (request.method === 'HEAD') {
+    headers.set('content-length', String(head.size));
+    return new Response(null, { headers });
+  }
 
-  const rangeHeader = request.headers.get('range');
+  const ifRange = request.headers.get('if-range');
+  const rangeHeader = !ifRange || ifRange === headers.get('etag') ? request.headers.get('range') : null;
   if (rangeHeader) {
     const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
     if (match) {
@@ -256,7 +302,17 @@ async function serveR2(bucket, request, key, options = {}) {
 
 function sameOrigin(request) {
   const origin = request.headers.get('origin');
-  return !origin || origin === new URL(request.url).origin;
+  return request.headers.get('sec-fetch-site') !== 'cross-site' && (!origin || origin === new URL(request.url).origin);
+}
+
+async function rateLimit(env, request, scope, limit, seconds) {
+  const now = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / seconds);
+  const address = request.headers.get('cf-connecting-ip') || 'unknown';
+  const digest = bytesToB64Url(await sha256(`${env.SESSION_SECRET || 'appvault'}:${scope}:${window}:${address}`));
+  const row = await needDb(env).prepare(`INSERT INTO request_limits (key, count, expires) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1 RETURNING count`).bind(digest, (window + 1) * seconds).first();
+  await needDb(env).prepare('DELETE FROM request_limits WHERE expires < ?').bind(now - 86400).run();
+  return row.count > limit ? json({ error: 'Too many attempts. Please try again later.' }, 429, { 'retry-after': String((window + 1) * seconds - now) }) : null;
 }
 
 function parseCookies(request) {
@@ -330,6 +386,8 @@ async function requireAdmin(env, request) {
 async function adminLogin(env, request) {
   if (!sameOrigin(request)) return json({ error: 'Origin check failed.' }, 403);
   if (!env.SESSION_SECRET || !env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) return json({ error: 'Set ADMIN_EMAIL, ADMIN_PASSWORD and SESSION_SECRET in Cloudflare first.' }, 503);
+  const limited = await rateLimit(env, request, 'login', 20, 900);
+  if (limited) return limited;
   const body = await request.json().catch(() => ({}));
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
@@ -406,8 +464,14 @@ function isFile(value) {
 async function saveImage(bucket, file, prefix) {
   if (!isFile(file) || !file.size) return null;
   if (file.size > 10 * 1024 * 1024) throw new Error('Images must be 10 MB or smaller.');
-  if (!String(file.type || '').startsWith('image/')) throw new Error('Only image files are allowed for icons and screenshots.');
-  const ext = extensionOf(file.name) || '.webp';
+  const types = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
+  if (!types[file.type]) throw new Error('Use PNG, JPEG or WebP images.');
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const valid = file.type === 'image/png' ? bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71
+    : file.type === 'image/jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+    : new TextDecoder().decode(bytes.slice(0,4)) === 'RIFF' && new TextDecoder().decode(bytes.slice(8,12)) === 'WEBP';
+  if (!valid) throw new Error('Image content does not match its file type.');
+  const ext = types[file.type];
   const key = `${prefix}/${Date.now()}-${crypto.randomUUID()}${ext}`;
   await bucket.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'application/octet-stream' } });
   return key;
@@ -436,22 +500,34 @@ async function createApp(env, request) {
   const apk = await bucket.head(apkKey);
   if (!apk) return json({ error: 'Uploaded APK could not be found in R2.' }, 400);
 
-  const iconKey = await saveImage(bucket, form.get('icon'), 'icons');
+  const stagedKeys = [];
   try {
+    const iconKey = await saveImage(bucket, form.get('icon'), 'icons');
+    if (iconKey) stagedKeys.push(iconKey);
+    const screenshots = form.getAll('screenshots').filter(x => isFile(x) && x.size).slice(0, 12);
+    const shotKeys = [];
+    for (const file of screenshots) {
+      const key = await saveImage(bucket, file, 'screenshots');
+      shotKeys.push(key); stagedKeys.push(key);
+    }
     const inserted = await db.prepare(`
       INSERT INTO apps (name, slug, developer, package_name, version, android_version, short_description, description, changelog, category_id, apk_key, icon_key, file_size, featured, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(name, slug, developer, packageName, version, androidVersion, shortDescription, description, changelog, categoryId, apkKey, iconKey, fileSize || apk.size, featured, status).run();
+    `).bind(name, slug, developer, packageName, version, androidVersion, shortDescription, description, changelog, categoryId, apkKey, iconKey, apk.size, featured, status).run();
     const appId = Number(inserted.meta?.last_row_id);
-    const screenshots = form.getAll('screenshots').filter(x => isFile(x) && x.size).slice(0, 12);
     const statements = [];
-    for (let i = 0; i < screenshots.length; i++) {
-      const key = await saveImage(bucket, screenshots[i], 'screenshots');
+    for (let i = 0; i < shotKeys.length; i++) {
+      const key = shotKeys[i];
       statements.push(db.prepare(`INSERT INTO screenshots (app_id, object_key, sort_order) VALUES (?, ?, ?)`).bind(appId, key, i));
     }
     if (statements.length) await db.batch(statements);
     return json({ ok: true, app: { id: appId, name, slug } }, 201);
   } catch (e) {
+    // Only remove staged images if no listing references them.
+    for (const key of stagedKeys) {
+      const referenced = await db.prepare('SELECT id FROM apps WHERE icon_key = ? UNION ALL SELECT id FROM screenshots WHERE object_key = ? LIMIT 1').bind(key,key).first();
+      if (!referenced) await bucket.delete(key);
+    }
     if (/unique/i.test(String(e))) return json({ error: 'That app slug already exists.' }, 409);
     throw e;
   }
@@ -477,6 +553,12 @@ async function updateApp(env, request, id) {
     status: v => String(v) === 'draft' ? 'draft' : 'published'
   };
   const sets = [], values = [];
+  if (body.apk_key !== undefined) {
+    if (!/^apks\/[a-zA-Z0-9._-]+\.apk$/.test(String(body.apk_key))) return json({ error: 'Invalid APK key.' }, 400);
+    const apk = await needBucket(env).head(body.apk_key);
+    if (!apk) return json({ error: 'Uploaded APK was not found.' }, 400);
+    sets.push('apk_key = ?', 'file_size = ?'); values.push(body.apk_key, apk.size);
+  }
   for (const [key, transform] of Object.entries(allowed)) {
     if (Object.prototype.hasOwnProperty.call(body, key)) { sets.push(`${key} = ?`); values.push(transform(body[key])); }
   }
@@ -509,7 +591,7 @@ async function startMultipart(env, request) {
   const body = await request.json().catch(() => ({}));
   const filename = String(body.filename || 'app.apk').slice(0, 160);
   const size = Number(body.size || 0);
-  if (!filename.toLowerCase().endsWith('.apk') || size <= 0) return json({ error: 'Choose a valid APK file.' }, 400);
+  if (!filename.toLowerCase().endsWith('.apk') || !Number.isSafeInteger(size) || size <= 0 || size > 1024 * 1024 * 1024) return json({ error: 'Choose an APK no larger than 1 GB.' }, 400);
   const key = `apks/${Date.now()}-${crypto.randomUUID()}.apk`;
   const upload = await bucket.createMultipartUpload(key, { httpMetadata: { contentType: 'application/vnd.android.package-archive' }, customMetadata: { originalName: filename } });
   return json({ key, uploadId: upload.uploadId }, 201);
