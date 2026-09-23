@@ -1,0 +1,63 @@
+/* AppVault Home v4 — compact, premium, no oversized hero/search */
+body[data-page="home"]{background:#f6f7f9!important;color:#15171a!important}
+body[data-page="home"] .site-header{position:sticky!important;top:0!important;z-index:50!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(16px)!important;border-bottom:1px solid #e7e9ec!important}
+body[data-page="home"] .nav{min-height:60px!important}
+body[data-page="home"] .brand{font-size:17px!important}
+body[data-page="home"] .brand-mark{width:32px!important;height:32px!important;border-radius:9px!important}
+
+body[data-page="home"] .hero{padding:0!important;background:#fff!important;border-bottom:1px solid #e7e9ec!important}
+body[data-page="home"] .hero-simple{max-width:none!important;padding-top:22px!important;padding-bottom:22px!important}
+body[data-page="home"] .hero h1{margin:0!important;font-size:clamp(24px,4.8vw,34px)!important;line-height:1.08!important;letter-spacing:-.04em!important;font-weight:850!important;max-width:none!important}
+body[data-page="home"] .hero-copy{margin:7px 0 0!important;font-size:13px!important;line-height:1.5!important;color:#767b82!important;max-width:680px!important}
+body[data-page="home"] .hero-search{display:none!important}
+body[data-page="home"] .hero-meta{display:none!important}
+
+body[data-page="home"] .section{padding:24px 0!important;border-top:0!important}
+body[data-page="home"] .section:nth-of-type(even){background:#fff!important}
+body[data-page="home"] .section:nth-of-type(odd){background:#f6f7f9!important}
+body[data-page="home"] .section-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;margin:0 0 13px!important;text-align:left!important}
+body[data-page="home"] .section-head>div{min-width:0!important;text-align:left!important}
+body[data-page="home"] .section-head .eyebrow{display:none!important}
+body[data-page="home"] .section-head h2{margin:0!important;font-size:20px!important;line-height:1.2!important;letter-spacing:-.03em!important;font-weight:820!important;text-align:left!important}
+body[data-page="home"] .section-head .link-arrow{flex:0 0 auto!important;font-size:11.5px!important;font-weight:700!important;color:#5e636a!important;text-decoration:none!important}
+
+body[data-page="home"] .apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+body[data-page="home"] a.app-card{min-height:100px!important;padding:13px!important;border:1px solid #e3e6e9!important;border-radius:16px!important;background:#fff!important;box-shadow:0 3px 12px rgba(22,28,36,.035)!important;grid-template-columns:64px minmax(0,1fr) 16px!important;gap:3px 12px!important}
+body[data-page="home"] a.app-card:hover{border-color:#d4d8dd!important;box-shadow:0 8px 22px rgba(22,28,36,.07)!important}
+body[data-page="home"] .app-card .app-icon{width:64px!important;height:64px!important;border-radius:16px!important}
+body[data-page="home"] .app-card h3{font-size:15px!important;font-weight:820!important}
+body[data-page="home"] .app-card p{font-size:11.5px!important;color:#737880!important}
+body[data-page="home"] .app-card-meta{font-size:10px!important;color:#969ba2!important}
+body[data-page="home"] a.app-card::after{font-size:22px!important;color:#a8adb3!important}
+
+body[data-page="home"] .category-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:9px!important}
+body[data-page="home"] .category-card{min-height:78px!important;padding:11px!important;border:1px solid #e3e6e9!important;border-radius:14px!important;background:#fff!important;box-shadow:0 2px 10px rgba(22,28,36,.025)!important;grid-template-columns:36px minmax(0,1fr)!important}
+body[data-page="home"] .category-card .cat-icon{width:36px!important;height:36px!important;border-radius:10px!important;background:#f0f2f4!important}
+body[data-page="home"] .category-card h3{font-size:12.5px!important;font-weight:760!important}
+body[data-page="home"] .category-card small{font-size:9.5px!important;color:#9a9fa5!important}
+
+body[data-page="home"] .site-footer{margin-top:0!important}
+
+@media(max-width:700px){
+  body[data-page="home"] .container{width:min(calc(100% - 28px),1080px)!important}
+  body[data-page="home"] .hero-simple{padding-top:17px!important;padding-bottom:17px!important}
+  body[data-page="home"] .hero h1{font-size:25px!important;line-height:1.1!important}
+  body[data-page="home"] .hero-copy{font-size:12.5px!important;margin-top:6px!important}
+  body[data-page="home"] .section{padding:20px 0!important}
+  body[data-page="home"] .section-head{margin-bottom:11px!important}
+  body[data-page="home"] .section-head h2{font-size:19px!important}
+  body[data-page="home"] .apps-grid{grid-template-columns:1fr!important;gap:9px!important}
+  body[data-page="home"] a.app-card{min-height:92px!important;padding:11px!important;border-radius:15px!important;grid-template-columns:58px minmax(0,1fr) 15px!important;gap:2px 11px!important}
+  body[data-page="home"] .app-card .app-icon{width:58px!important;height:58px!important;border-radius:14px!important}
+  body[data-page="home"] .app-card h3{font-size:14.5px!important}
+  body[data-page="home"] .app-card p{font-size:11.5px!important}
+  body[data-page="home"] .category-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  body[data-page="home"] .category-card{min-height:74px!important;padding:10px!important}
+  body[data-page="home"] .category-card h3{font-size:12px!important}
+}
+
+@media(max-width:390px){
+  body[data-page="home"] .hero h1{font-size:23px!important}
+  body[data-page="home"] .hero-copy{font-size:12px!important}
+  body[data-page="home"] .section-head h2{font-size:18px!important}
+}
