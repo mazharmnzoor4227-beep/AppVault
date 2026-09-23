@@ -1,0 +1,78 @@
+/* AppVault Home v5 — Play-Store-inspired discovery layout (original design) */
+body[data-page="home"]{background:#fff!important;color:#202124!important}
+body[data-page="home"] .site-header{position:sticky!important;top:0!important;z-index:80!important;background:rgba(255,255,255,.98)!important;backdrop-filter:blur(14px)!important;border-bottom:1px solid #eceff1!important}
+body[data-page="home"] .nav{min-height:64px!important}
+body[data-page="home"] .brand{font-size:18px!important;font-weight:800!important;letter-spacing:-.025em!important}
+body[data-page="home"] .brand-mark{width:34px!important;height:34px!important;border-radius:10px!important}
+body[data-page="home"] .menu-btn{border:0!important;background:transparent!important;border-radius:999px!important;width:42px!important;height:42px!important;font-size:22px!important}
+body[data-page="home"] .menu-btn:active{background:#f1f3f4!important}
+
+/* compact discovery controls directly under header */
+.play-home-tools{background:#fff;border-bottom:1px solid #f0f1f2;padding:14px 0 10px}
+.play-search{height:48px;display:flex;align-items:center;gap:11px;border-radius:24px;background:#f1f3f4;padding:0 17px;text-decoration:none;color:#5f6368;box-shadow:none}
+.play-search svg{width:21px;height:21px;flex:0 0 auto;fill:#5f6368}
+.play-search span{font-size:14px;font-weight:500}
+.play-tabs{display:flex;gap:8px;overflow-x:auto;padding:11px 1px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.play-tabs::-webkit-scrollbar{display:none}
+.play-chip{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:1px solid #dadce0;border-radius:18px;background:#fff;color:#3c4043;font-size:12px;font-weight:650;text-decoration:none}
+.play-chip.active{background:#e8f0fe;border-color:#e8f0fe;color:#174ea6}
+.play-chip:active{transform:scale(.98)}
+
+/* no marketing hero */
+body[data-page="home"] .hero{display:none!important}
+
+body[data-page="home"] .section{padding:22px 0!important;background:#fff!important;border:0!important}
+body[data-page="home"] .section+.section{border-top:1px solid #f1f3f4!important}
+body[data-page="home"] .section-head{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin:0 0 13px!important;text-align:left!important}
+body[data-page="home"] .section-head>div{display:block!important;min-width:0!important;text-align:left!important}
+body[data-page="home"] .section-head h2{margin:0!important;font-size:19px!important;line-height:1.25!important;letter-spacing:-.025em!important;font-weight:760!important;text-align:left!important;color:#202124!important}
+body[data-page="home"] .section-head .eyebrow{display:none!important}
+body[data-page="home"] .section-head .link-arrow{margin:0!important;flex:0 0 auto!important;font-size:12px!important;font-weight:650!important;color:#1a73e8!important;text-decoration:none!important}
+
+/* Play-like app list: no giant boxed cards */
+body[data-page="home"] .apps-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px 24px!important}
+body[data-page="home"] a.app-card{position:relative!important;display:grid!important;grid-template-columns:72px minmax(0,1fr)!important;grid-template-rows:auto auto auto!important;gap:3px 13px!important;min-height:78px!important;padding:2px!important;border:0!important;border-radius:12px!important;background:transparent!important;box-shadow:none!important;transform:none!important;align-items:center!important}
+body[data-page="home"] a.app-card::after{display:none!important}
+body[data-page="home"] a.app-card:hover{background:#f8f9fa!important;box-shadow:none!important;border:0!important;transform:none!important}
+body[data-page="home"] .app-card .app-icon{grid-column:1!important;grid-row:1/4!important;width:72px!important;height:72px!important;border-radius:16px!important;object-fit:cover!important;border:1px solid #eceff1!important;background:#f5f6f7!important}
+body[data-page="home"] .app-card h3{grid-column:2!important;grid-row:1!important;margin:0!important;font-size:14px!important;line-height:1.25!important;font-weight:700!important;color:#202124!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body[data-page="home"] .app-card p{grid-column:2!important;grid-row:2!important;margin:0!important;font-size:11.5px!important;line-height:1.3!important;color:#5f6368!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;display:block!important}
+body[data-page="home"] .app-card-meta{grid-column:2!important;grid-row:3!important;margin:0!important;display:flex!important;gap:7px!important;font-size:10px!important;color:#80868b!important;white-space:nowrap!important;overflow:hidden!important}
+
+/* category row becomes compact horizontal discovery chips */
+body[data-page="home"] .category-grid{display:flex!important;gap:10px!important;overflow-x:auto!important;padding:1px 1px 6px!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}
+body[data-page="home"] .category-grid::-webkit-scrollbar{display:none}
+body[data-page="home"] .category-card{flex:0 0 152px!important;min-height:68px!important;display:grid!important;grid-template-columns:38px minmax(0,1fr)!important;grid-template-rows:auto auto!important;gap:1px 9px!important;align-items:center!important;padding:11px!important;border:1px solid #e4e7ea!important;border-radius:14px!important;background:#fff!important;box-shadow:none!important}
+body[data-page="home"] .category-card .cat-icon{grid-column:1!important;grid-row:1/3!important;width:38px!important;height:38px!important;border-radius:10px!important;margin:0!important;background:#f1f3f4!important;color:#5f6368!important}
+body[data-page="home"] .category-card h3{grid-column:2!important;grid-row:1!important;margin:0!important;font-size:12px!important;font-weight:680!important;color:#202124!important;align-self:end!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body[data-page="home"] .category-card p{display:none!important}
+body[data-page="home"] .category-card small{grid-column:2!important;grid-row:2!important;margin:2px 0 0!important;font-size:9.5px!important;color:#80868b!important;align-self:start!important}
+
+body[data-page="home"] .site-footer{margin-top:6px!important}
+
+@media(max-width:860px){
+  body[data-page="home"] .apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+@media(max-width:640px){
+  body[data-page="home"] .container{width:min(calc(100% - 28px),1080px)!important}
+  .play-home-tools{padding:12px 0 8px}
+  .play-search{height:46px;border-radius:23px;padding:0 15px}
+  .play-search span{font-size:13.5px}
+  .play-tabs{padding-top:10px}
+  body[data-page="home"] .section{padding:19px 0!important}
+  body[data-page="home"] .section-head{margin-bottom:12px!important}
+  body[data-page="home"] .section-head h2{font-size:18px!important}
+  body[data-page="home"] .apps-grid{display:flex!important;grid-template-columns:none!important;gap:16px!important;overflow-x:auto!important;padding:2px 2px 8px!important;scroll-snap-type:x proximity!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}
+  body[data-page="home"] .apps-grid::-webkit-scrollbar{display:none}
+  body[data-page="home"] a.app-card{flex:0 0 272px!important;scroll-snap-align:start!important;grid-template-columns:68px minmax(0,1fr)!important;min-height:72px!important;padding:4px!important}
+  body[data-page="home"] .app-card .app-icon{width:68px!important;height:68px!important;border-radius:15px!important}
+  body[data-page="home"] .app-card h3{font-size:13.5px!important}
+  body[data-page="home"] .app-card p{font-size:11px!important}
+  body[data-page="home"] .category-card{flex-basis:145px!important}
+}
+
+@media(max-width:380px){
+  body[data-page="home"] a.app-card{flex-basis:252px!important}
+  .play-chip{padding:0 12px;font-size:11.5px}
+}
